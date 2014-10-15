@@ -59,6 +59,8 @@ foreach ($candidates as $site_uuid => $info) {
     // Short pause for git tags to propogate.
     sleep(10);
   }
+  // NOTE: If you wanted to make a version to only get changes to test and than manually deploy
+  // you could just comment this part out.
   if ($status['live']['is_up_to_date_with_upstream'] !== TRUE) {
     echo "Deploying to live\n";
     echo `drush psite-deploy $site_uuid live -y`;
