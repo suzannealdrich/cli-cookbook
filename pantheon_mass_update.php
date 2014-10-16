@@ -77,15 +77,21 @@ foreach ($candidates as $site_uuid => $info) {
     echo `drush psite-cmode $site_uuid dev git`;
     echo `drush psite-upstream-updates-apply $site_uuid`;
   }
-  if ($status['test']['is_up_to_date_with_upstream'] !== TRUE) {
-    echo "Deploying to test\n";
-    echo `drush psite-deploy $site_uuid test -y`;
-    // Short pause for git tags to propogate.
-    sleep(10);
+  if (array_key_exists('test', $status) &&
+    is_array($status['test']) &&
+    array_key_exists('is_up_to_date_with_upstream', $status['test']) &&
+    $status['test']['is_up_to_date_with_upstream'] !== TRUE) {
+      echo "Deploying to test\n";
+      echo `drush psite-deploy $site_uuid test -y`;
+      // Short pause for git tags to propogate.
+      sleep(10);
   }
-  if ($status['live']['is_up_to_date_with_upstream'] !== TRUE) {
-    echo "Deploying to live\n";
-    echo `drush psite-deploy $site_uuid live -y`;
+  if (array_key_exists('live', $status) &&
+    is_array($status['live']) &&
+    array_key_exists('is_up_to_date_with_upstream', $status['live']) &&
+    $status['live']['is_up_to_date_with_upstream'] !== TRUE) {
+      echo "Deploying to live\n";
+      echo `drush psite-deploy $site_uuid live -y`;
   }
   echo "\nNo more to do for ". $info['name'] ."\n";
 }
