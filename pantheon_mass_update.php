@@ -1,9 +1,17 @@
 <?php
 
+// PANTHEON MASS UPDATE SCRIPT
+// PURPOSE:
+// To update all your Pantheon-hosted Drupal sites with the latest upstream changes
+// REQUIREMENTS: 
+// Drush 6.x, Terminus
+// CAVEATS: 
+// Will wipe all uncommitted changes on sites in SFTP mode. 
+// Will deploy straight to production.
 // YOUR LOGIN INFO HERE:
 $email = '';
 $password = '';
-// RUNNING IT FOR A PANTHEON ONE "ORGANIZATION": UNCOMMENT AND ADD YOUR UUID HERE
+// IF UPDATING ALL SITES FOR A PANTHEON ONE "ORGANIZATION": UNCOMMENT AND ADD ITS UUID HERE
 // $organiztion_uuid = 'some-org-uuid-here';
 
 // helper function
