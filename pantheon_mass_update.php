@@ -1,38 +1,45 @@
 <?php
 
-// PANTHEON MASS UPDATE SCRIPT
-// PURPOSE:
-// To update all your Pantheon-hosted Drupal sites with the latest upstream changes
-// REQUIREMENTS: 
-// Drush 6.x, Terminus
-// CAVEATS: 
-// Will wipe all uncommitted changes on sites in SFTP mode. 
-// Will deploy straight to production.
-// YOUR LOGIN INFO HERE:
-$email = '';
-$password = '';
 // IF UPDATING ALL SITES FOR A PANTHEON ONE "ORGANIZATION": UNCOMMENT AND ADD ITS UUID HERE
-// $organiztion_uuid = 'some-org-uuid-here';
+// $organization_uuid = 'your-organization-uuid-here';
+
+echo "RECIPE:   Pantheon Mass Update\n";
+echo "PURPOSE:  Updates sites with the latest upstream changes.\n";
+echo "REQUIRES: Drush 6, Terminus\n\n";
+echo "WARNING:  Loses all uncommitted changes on sites in SFTP mode.\n";
+echo "WARNING:  Deploys all pending code updates straight to production.\n";
+echo "WARNING:  Must be authenticated with drush pauth command.\n\n";
+
+echo "CONFIRM:  Are you SURE you want to continue?  Type 'yes' to proceed: ";
+$handle = fopen ("php://stdin","r");
+$line = fgets($handle);
+if(trim($line) != 'yes'){
+    echo "ABORTING!\n";
+    exit;
+}
+echo "\n";
+echo "Confirmed, proceeding...\n\n";
 
 // helper function
 function terminus_json($command) {
   return json_decode(`drush $command --json`, TRUE);
 }
 
-echo `drush pauth $email --password=$password`;
 $candidates = array();
 
 // Sadly the API returns differently nested data for orgs vs user site lists.
 // So we have some mucky munge code.
-if (isset($organiztion_uuid)) {
-  echo "\n\nRUNNING FOR ORGANIZTION $organiztion_uuid\n\n";
-  $sites = terminus_json("porg-sites $organiztion_uuid");
+if (isset($organization_uuid)) {
+  echo "\n\nRUNNING FOR ORGANIZATION $organization_uuid\n\n";
+  $sites = terminus_json("porg-sites $organization_uuid");
   foreach ($sites as $site_uuid => $data) {
     // Check framework and upstream url to see if it's a Drupal site
-    if ((isset($data['framework']) &&
-        $data['framework'] == 'drupal') ||
-        (isset($data['upstream']['url']) &&
-         strpos($data['upstream']['url'], 'drops-7') !== FALSE)) {
+    $site_framework = $data['framework'];
+    $site_upstream_url = $data['upstream']['url'];
+    $site_is_drupal7 = strpos($site_upstream_url, 'drops-7');
+
+    if ((isset($site_framework) && $site_framework == 'drupal') &&
+        (isset($site_upstream_url) && $site_is_drupal7 !== FALSE)) {
       $candidates[$site_uuid] = $data;
     }
   }
@@ -41,10 +48,12 @@ else {
   $sites = terminus_json('psites');
   foreach ($sites as $site_uuid => $data) {
     // Check framework and upstream url to see if it's a Drupal site
-    if ((isset($data['information']['framework']) &&
-        $data['information']['framework'] == 'drupal') ||
-        (isset($data['information']['upstream']['url']) &&
-         strpos($data['information']['upstream']['url'], 'drops-7') !== FALSE)) {
+    $site_framework = $data['information']['framework'];
+    $site_upstream_url = $data['information']['upstream']['url'];
+    $site_is_drupal7 = strpos($site_upstream_url, 'drops-7');
+
+    if ((isset($site_framework) && $site_framework == 'drupal') &&
+        (isset($site_upstream_url) && $site_is_drupal7 !== FALSE)) {
       $candidates[$site_uuid] = $data['information'];
     }
   }
@@ -53,13 +62,14 @@ else {
 echo "\n\n";
 echo "Found ". count($candidates) . " Drupal 7.x sites:\n";
 foreach ($candidates as $site_uuid => $info) {
-  echo $info['name'] ."\n";
+  echo "SITE NAME: " . $info['name'] . "\n";
+  echo "UPSTREAM:  " . $info['upstream']['url'] . "\n\n";
 }
 echo "\n\n";
 echo "*** WARNING ***\n";
-echo "Continuing with this update will blow away any uncommitted changes.\n";
-echo "Any uncommited changes will be permanently LOST.\n\n";
-echo "Are you sure you want to do this?  Type 'yes' to continue: ";
+echo "You must verify that each site has had any important changes committed.\n";
+echo "ANY uncommitted changes will be permanently LOST.\n\n";
+echo "Are you SURE you want to do this?  Type 'yes' to continue: ";
 $handle = fopen ("php://stdin","r");
 $line = fgets($handle);
 if(trim($line) != 'yes'){
@@ -67,16 +77,15 @@ if(trim($line) != 'yes'){
     exit;
 }
 echo "\n";
-echo "Thank you, continuing...\n\n";
+echo "Confirmed, proceeding...\n\n";
 
 foreach ($candidates as $site_uuid => $info) {
   echo "\n\n-----------  ";
   echo "Starting on ". $info['name'];
   echo "  -----------\n";
-  if (isset($organiztion_uuid)) {
-    echo "NOTE: you will see an error message for each site deploy like this:\n";
+  if (isset($organization_uuid)) {
+    echo "NOTE: You may safely ignore these error messages on site deploy:\n";
     echo "\"No site found for UUID '$site_uuid'.\"\n\n";
-    echo "These are safe to ignore.\n\n";
   }
   echo "Fetching update status...";
   $status = terminus_json("psite-upstream-updates $site_uuid");
@@ -90,7 +99,7 @@ foreach ($candidates as $site_uuid => $info) {
     array_key_exists('is_up_to_date_with_upstream', $status['test']) &&
     $status['test']['is_up_to_date_with_upstream'] !== TRUE) {
       echo "Deploying to test\n";
-      echo `drush psite-deploy $site_uuid test -y`;
+      echo `drush psite-deploy $site_uuid test --update --cc -y`;
       // Short pause for git tags to propogate.
       sleep(10);
   }
@@ -99,7 +108,7 @@ foreach ($candidates as $site_uuid => $info) {
     array_key_exists('is_up_to_date_with_upstream', $status['live']) &&
     $status['live']['is_up_to_date_with_upstream'] !== TRUE) {
       echo "Deploying to live\n";
-      echo `drush psite-deploy $site_uuid live -y`;
+      echo `drush psite-deploy $site_uuid live --update --cc -y`;
   }
   echo "\nNo more to do for ". $info['name'] ."\n";
 }
